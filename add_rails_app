@@ -128,6 +128,9 @@ EOT
 
 fi
 
+/scripts/rebuildhttpdconf
+/sbin/service httpd restart
+
 echo Ruby App succesfully created.
 echo
 echo ---------------------------------------------------------------------------------
