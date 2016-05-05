@@ -1,0 +1,133 @@
+#!/bin/bash
+clear
+
+if [ $# != 4 ] ; then
+	echo ---------------------------------------------------------------------------------
+	echo USAGE..: add_rails_app USER DOMAIN APP_NAME RAILS_ENV
+	echo EXAMPLE: add_rails_app megahost development.megahost.com my_rails_app development
+	echo ---------------------------------------------------------------------------------
+else
+
+	USER=$1
+	declare -l USER
+	USER=$USER
+
+	DOMAIN=$2
+	declare -l DOMAIN
+	DOMAIN=$DOMAIN
+
+	APP=$3
+	declare -l APP
+	APP=$APP
+
+	RAILS_ENV=$4
+	declare -l RAILS_ENV
+	RAILS_ENV=$RAILS_ENV
+
+	if id "$1" >/dev/null 2>&1; then
+		echo ---------------------------------------------------------------------------------
+		echo $USER is a valid user.
+	else
+		echo ---------------------------------------------------------------------------------
+  	echo NO VALID USER FOUND! MAKE SURE THE ACCOUNT IS CREATED FIRST!
+		echo ---------------------------------------------------------------------------------
+		exit
+	fi
+
+	IFS='.' read -r -a array <<< "$DOMAIN"
+
+	if [ "${#array[@]}" -lt "2" ] || [ "${#array[@]}" -gt "3" ]; then
+		echo ---------------------------------------------------------------------------------
+		echo $DOMAIN should in the following format:
+		echo "- subdomain.domain.tld; ie. mail.google.com"
+		echo "- domain.tld; i.e. google.com"
+		echo ---------------------------------------------------------------------------------
+		exit
+	fi
+
+	if [ "${#array[@]}" -eq "3" ] && [ "${array[0]}" == "www" ]; then
+
+		DOMAIN="${array[1]}"."${array[2]}"
+		IFS='.' read -r -a array <<< "$DOMAIN"
+
+	fi
+
+	if [ ! -f /var/cpanel/userdata/$USER/$DOMAIN ]; then
+		echo ---------------------------------------------------------------------------------
+		echo $DOMAIN does not exist. Please create it first.
+		echo ---------------------------------------------------------------------------------
+		exit
+	fi
+
+	echo ---------------------------------------------------------------------------------
+  echo USER.....: $USER
+  echo DOMAIN...: $DOMAIN
+	echo ---------------------------------------------------------------------------------
+	echo APP_NAME.: $APP
+	echo RAILS_ENV: $RAILS_ENV
+	echo ---------------------------------------------------------------------------------
+
+	if [ ! -f /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf ]; then
+		echo CREATING.: /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf ...
+		mkdir -p /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/
+
+	cat <<EOT > /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf
+RackEnv $RAILS_ENV
+<Directory /home/$USER/rails_apps/$DOMAIN/$APP/public>
+	Options -MultiViews
+</Directory>
+EOT
+
+	/bin/cp -f /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf.backup
+
+	else
+
+	cat <<EOT > /usr/local/apache/conf/userdata/std/2_4/$USER/$DOMAIN/rails.conf
+RackEnv $RAILS_ENV
+<Directory /home/$USER/rails_apps/$DOMAIN/$APP/public>
+	Options -MultiViews
+</Directory>
+EOT
+
+	fi
+
+	DOMAINFILE=/var/cpanel/userdata/$USER/$DOMAIN
+
+	if [ ! -f $DOMAINFILE.backup ]; then
+		/bin/cp -f $DOMAINFILE $DOMAINFILE.backup
+	else
+		/bin/cp -f $DOMAINFILE.backup $DOMAINFILE
+	fi
+
+	if [ "${#array[@]}" -eq "2" ]; then
+
+		ROOT=/home/$USER/public_html
+		/bin/sed -i -e 's#documentroot:\s/home/'$USER'/public_html#documentroot: /home/'$USER'/rails_apps/'$DOMAIN'/'$APP'/public#g' /var/cpanel/userdata/$USER/$DOMAIN
+
+
+	elif  [ "${#array[@]}" -eq "3" ]; then
+
+		DIR=${array[0]}
+		ROOT=/home/$USER/public_html/$DIR
+		/bin/sed -i -e 's#documentroot:\s/home/'$USER'/public_html/'$DIR'#documentroot: /home/'$USER'/rails_apps/'$DOMAIN'/'$APP'/public#g' /var/cpanel/userdata/$USER/$DOMAIN
+
+	fi
+
+	APP_ROOT=/home/$USER/rails_apps/$DOMAIN/$APP/public
+
+	# Create app folder
+	mkdir -p $APP_ROOT
+	rails new /home/$USER/rails_apps/$DOMAIN/$APP -T -f -q
+
+	chown -R $USER:$USER /home/$USER/rails_apps/
+
+	echo EDITED...: $DOMAINFILE
+	echo CHANGED...: documentroot: $ROOT
+	echo TO........: documentroot: $APP_ROOT
+	echo ---------------------------------------------------------------------------------
+
+fi
+
+echo Ruby App succesfully created.
+echo
+echo ---------------------------------------------------------------------------------
