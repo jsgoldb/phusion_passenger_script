@@ -126,11 +126,11 @@ EOT
 	echo TO........: documentroot: $APP_ROOT
 	echo ---------------------------------------------------------------------------------
 
+	/scripts/rebuildhttpdconf
+	/sbin/service httpd restart
+
+	echo Ruby App succesfully created.
+	echo
+	echo ---------------------------------------------------------------------------------
+
 fi
-
-/scripts/rebuildhttpdconf
-/sbin/service httpd restart
-
-echo Ruby App succesfully created.
-echo
-echo ---------------------------------------------------------------------------------
